@@ -1,104 +1,129 @@
-# AgentNote 📝
+# AgentNote 📚
 
-> Agent 驱动的轻量知识库管理平台
+> Agent-driven lightweight markdown knowledge base
 
-在 Agent 时代，传统表格文档工具如 Notion 反而拖累生产力。AgentNote 采用 **Claude Skills + SQLite** 的极简架构，让你只管输入零碎想法，Agent 负责格式化、分类和入库。
+A minimal **Claude Skills + SQLite** architecture for managing markdown documents. Just paste your messy notes, Claude formats them into clean markdown and stores them. The web UI provides a blog-style reading experience.
 
-## ✨ 特性
+## Features
 
-- **极致轻量**：无框架依赖，整个项目就是 Skills 脚本 + SQLite 文件
-- **Agent 中心**：用户专注思考，Claude 处理格式化和入库
-- **零负担输入**：自然语言输入，自动结构化
-- **本地存储**：数据存在本地 SQLite，隐私安全
+- **Markdown-first**: All content stored as markdown
+- **Agent-powered**: Claude handles formatting and categorization
+- **Zero friction**: Paste text → auto-format → stored
+- **Blog viewer**: Clean web UI for reading documents
+- **Local storage**: SQLite database, your data stays local
 
-## 📁 项目结构
+## Quick Start
 
-```
-AgentNote/
-├── skills/                 # Claude Skills
-│   ├── add_idea/          # 添加想法
-│   ├── search_ideas/      # 搜索
-│   ├── get_idea/          # 获取单条
-│   ├── update_idea/       # 更新
-│   ├── delete_idea/       # 删除
-│   ├── relate_ideas/      # 创建关联
-│   ├── format_thought/    # 格式化零碎思考 ⭐
-│   ├── get_recent/        # 最近记录
-│   ├── find_similar/      # 相似查找
-│   └── summarize_category/# 分类总结
-├── utils/
-│   └── db.py              # 数据库工具
-├── data/
-│   └── agentnote.db       # SQLite 数据库
-├── schema.sql             # 数据库结构
-└── README.md
-```
-
-## 🚀 快速开始
-
-### 1. 初始化数据库
+### 1. Clone and Initialize
 
 ```bash
-cd /home/AgentNote
+git clone https://github.com/yourusername/AgentNote.git
+cd AgentNote
 python utils/db.py init
 ```
 
-### 2. 添加第一个想法
+### 2. Start Web UI
 
 ```bash
-python skills/add_idea/add_idea.py '{"title":"AgentNote真香","category":"生产力","keywords":["agent","知识库"],"content":"用 Skills 做知识库管理比 Notion 轻量多了"}'
+cd web
+python app.py
+# Open http://localhost:5000
 ```
 
-### 3. 搜索想法
+### 3. Add Documents via Claude
+
+In a Claude conversation with skills enabled:
+
+```
+You: Format and save this:
+     python虚拟环境 用venv创建 python -m venv myenv
+     激活linux是source myenv/bin/activate 退出用deactivate
+
+Claude: [Uses format_to_markdown skill]
+        [Uses save_doc skill]
+
+        ✅ Saved: "Python Virtual Environment Guide"
+        Category: Tech | Tags: python, venv
+```
+
+## Project Structure
+
+```
+AgentNote/
+├── skills/
+│   ├── save_doc/              # Save markdown documents
+│   │   ├── SKILL.md
+│   │   └── save_doc.py
+│   └── format_to_markdown/    # Auto-format text to markdown
+│       └── SKILL.md
+├── utils/
+│   └── db.py                  # Database operations
+├── data/
+│   └── .gitkeep               # DB created here (gitignored)
+├── web/
+│   ├── app.py                 # Flask API server
+│   ├── static/
+│   │   ├── css/style.css
+│   │   └── js/app.js
+│   └── templates/
+│       └── index.html
+├── schema.sql
+├── .gitignore
+└── README.md
+```
+
+## Skills
+
+### save_doc
+
+Save markdown content to database:
 
 ```bash
-python skills/search_ideas/search_ideas.py '{"keyword":"agent"}'
+python skills/save_doc/save_doc.py '{
+  "title": "Document Title",
+  "content": "# Markdown Content\n\nYour content here...",
+  "category": "Tech",
+  "tags": ["python", "tutorial"]
+}'
 ```
 
-### 4. 与 Claude 配合使用
+### format_to_markdown
 
-在 Claude 对话中：
+Claude-executed skill that transforms raw text into structured markdown with:
+- Proper headings hierarchy
+- Code blocks with language hints
+- Lists and formatting
+- Auto-generated title, category, tags
 
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/docs` | List documents (supports `?category=`, `?tag=`, `?keyword=`) |
+| GET | `/api/docs/<id>` | Get document by ID |
+| POST | `/api/docs` | Add new document |
+| PUT | `/api/docs/<id>` | Update document |
+| DELETE | `/api/docs/<id>` | Delete document |
+| GET | `/api/categories` | List categories |
+| GET | `/api/tags` | List tags |
+
+## Database Schema
+
+```sql
+documents (id, slug, title, content, category, summary, source, timestamps)
+tags (id, name)
+document_tags (document_id, tag_id)
 ```
-我：帮我记录一个想法 - 今天想到用 skills 管理知识库很酷
 
-Claude：让我帮你格式化并入库...
-[调用 format_thought] → [调用 add_idea]
+## Requirements
 
-已保存！ID: 1
-标题：Skills知识库管理
-分类：生产力
+- Python 3.8+
+- Flask
+
+```bash
+pip install flask
 ```
 
-## 📖 Skills 列表
-
-| Skill | 描述 | 示例 |
-|-------|------|------|
-| `add_idea` | 添加新想法 | `{"title":"标题","content":"内容"}` |
-| `search_ideas` | 搜索想法 | `{"keyword":"AI"}` |
-| `get_idea` | 获取单条 | `{"id":1}` |
-| `update_idea` | 更新想法 | `{"id":1,"title":"新标题"}` |
-| `delete_idea` | 删除想法 | `{"id":1}` |
-| `relate_ideas` | 创建关联 | `{"idea_id_1":1,"idea_id_2":2}` |
-| `format_thought` | 格式化零碎想法 | 自然语言文本 |
-| `get_recent` | 最近 N 条 | `{"limit":10}` |
-| `find_similar` | 相似查找 | `{"idea_id":1}` |
-| `summarize_category` | 分类总结 | `{"category":"AI"}` |
-
-## 🗄️ 数据库结构
-
-- `ideas` - 想法主表（id, title, category, keywords, content, source, timestamps）
-- `tags` - 标签表
-- `idea_tags` - 想法-标签关联
-- `relations` - 想法关系表（支持 related, parent, inspired_by, contradict）
-
-## 🔮 后续扩展
-
-- [ ] 向量嵌入搜索（FAISS）
-- [ ] Web UI（Streamlit）
-- [ ] 知识图谱可视化
-- [ ] 多设备同步
-
-## 📄 License
+## License
 
 MIT
