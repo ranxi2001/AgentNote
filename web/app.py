@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AgentNote Web UI
-Flask application for the AgentNote knowledge base
+Markdown Blog Viewer
 """
 
 import sys
@@ -13,9 +13,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
 from flask import Flask, render_template, request, jsonify
 from db import (
     init_database, DB_PATH,
-    add_idea, get_idea, update_idea, delete_idea,
-    search_ideas, get_recent_ideas, get_categories,
-    add_relation, get_relations
+    add_document, get_document, update_document, delete_document,
+    search_documents, get_recent_documents, get_categories, get_all_tags,
+    get_documents_count
 )
 
 app = Flask(__name__)
@@ -25,32 +25,58 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    """Main page - Chat-first interface"""
+    """Main page - Blog view"""
     return render_template('index.html')
 
 
 # === API Routes ===
 
-@app.route('/api/ideas', methods=['GET'])
-def api_get_ideas():
-    """Get ideas list with optional filtering"""
+@app.route('/api/docs', methods=['GET'])
+def api_get_docs():
+    """Get documents list"""
     keyword = request.args.get('keyword', '')
     category = request.args.get('category', '')
+    tag = request.args.get('tag', '')
     limit = request.args.get('limit', 20, type=int)
     offset = request.args.get('offset', 0, type=int)
 
-    ideas = search_ideas(
+    docs = search_documents(
         keyword=keyword if keyword else None,
         category=category if category else None,
+        tag=tag if tag else None,
         limit=limit,
         offset=offset
     )
-    return jsonify({'success': True, 'data': ideas})
+    total = get_documents_count()
+
+    return jsonify({
+        'success': True,
+        'data': docs,
+        'total': total
+    })
 
 
-@app.route('/api/ideas', methods=['POST'])
-def api_add_idea():
-    """Add a new idea"""
+@app.route('/api/docs/<int:doc_id>', methods=['GET'])
+def api_get_doc_by_id(doc_id):
+    """Get document by ID"""
+    doc = get_document(doc_id=doc_id)
+    if doc:
+        return jsonify({'success': True, 'data': doc})
+    return jsonify({'success': False, 'error': 'Document not found'}), 404
+
+
+@app.route('/api/docs/slug/<slug>', methods=['GET'])
+def api_get_doc_by_slug(slug):
+    """Get document by slug"""
+    doc = get_document(slug=slug)
+    if doc:
+        return jsonify({'success': True, 'data': doc})
+    return jsonify({'success': False, 'error': 'Document not found'}), 404
+
+
+@app.route('/api/docs', methods=['POST'])
+def api_add_doc():
+    """Add new document"""
     data = request.get_json()
 
     if not data:
@@ -60,216 +86,86 @@ def api_add_idea():
         return jsonify({'success': False, 'error': 'title and content are required'}), 400
 
     try:
-        idea_id = add_idea(
+        result = add_document(
             title=data['title'],
             content=data['content'],
             category=data.get('category'),
-            keywords=data.get('keywords', []),
+            tags=data.get('tags', []),
+            summary=data.get('summary'),
             source=data.get('source', 'web')
         )
         return jsonify({
             'success': True,
-            'id': idea_id,
-            'message': f'Idea saved with ID: {idea_id}'
+            'id': result['id'],
+            'slug': result['slug'],
+            'message': f'Document saved: {result["title"]}'
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/ideas/<int:idea_id>', methods=['GET'])
-def api_get_idea(idea_id):
-    """Get a single idea by ID"""
-    idea = get_idea(idea_id)
-    if idea:
-        return jsonify({'success': True, 'data': idea})
-    return jsonify({'success': False, 'error': 'Idea not found'}), 404
-
-
-@app.route('/api/ideas/<int:idea_id>', methods=['PUT'])
-def api_update_idea(idea_id):
-    """Update an existing idea"""
+@app.route('/api/docs/<int:doc_id>', methods=['PUT'])
+def api_update_doc(doc_id):
+    """Update document"""
     data = request.get_json()
 
     if not data:
         return jsonify({'success': False, 'error': 'No data provided'}), 400
 
     try:
-        success = update_idea(idea_id, **data)
+        success = update_document(doc_id, **data)
         if success:
-            return jsonify({'success': True, 'message': 'Idea updated'})
-        return jsonify({'success': False, 'error': 'Idea not found or no changes'}), 404
+            return jsonify({'success': True, 'message': 'Document updated'})
+        return jsonify({'success': False, 'error': 'Document not found'}), 404
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/ideas/<int:idea_id>', methods=['DELETE'])
-def api_delete_idea(idea_id):
-    """Delete an idea"""
+@app.route('/api/docs/<int:doc_id>', methods=['DELETE'])
+def api_delete_doc(doc_id):
+    """Delete document"""
     try:
-        success = delete_idea(idea_id)
+        success = delete_document(doc_id)
         if success:
-            return jsonify({'success': True, 'message': 'Idea deleted'})
-        return jsonify({'success': False, 'error': 'Idea not found'}), 404
+            return jsonify({'success': True, 'message': 'Document deleted'})
+        return jsonify({'success': False, 'error': 'Document not found'}), 404
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/categories', methods=['GET'])
 def api_get_categories():
-    """Get all categories with counts"""
+    """Get all categories"""
     categories = get_categories()
     return jsonify({'success': True, 'data': categories})
 
 
+@app.route('/api/tags', methods=['GET'])
+def api_get_tags():
+    """Get all tags"""
+    tags = get_all_tags()
+    return jsonify({'success': True, 'data': tags})
+
+
 @app.route('/api/recent', methods=['GET'])
 def api_get_recent():
-    """Get recent ideas"""
+    """Get recent documents"""
     limit = request.args.get('limit', 10, type=int)
-    ideas = get_recent_ideas(limit=limit)
-    return jsonify({'success': True, 'data': ideas})
+    docs = get_recent_documents(limit=limit)
+    return jsonify({'success': True, 'data': docs})
 
 
-@app.route('/api/ideas/<int:idea_id>/relations', methods=['GET'])
-def api_get_relations(idea_id):
-    """Get relations for an idea"""
-    relations = get_relations(idea_id)
-    return jsonify({'success': True, 'data': relations})
-
-
-@app.route('/api/relations', methods=['POST'])
-def api_add_relation():
-    """Add a relation between ideas"""
-    data = request.get_json()
-
-    if not data or not data.get('idea_id_1') or not data.get('idea_id_2'):
-        return jsonify({'success': False, 'error': 'idea_id_1 and idea_id_2 are required'}), 400
-
-    try:
-        relation_id = add_relation(
-            idea_id_1=data['idea_id_1'],
-            idea_id_2=data['idea_id_2'],
-            relation_type=data.get('relation_type', 'related'),
-            note=data.get('note')
-        )
-        return jsonify({'success': True, 'id': relation_id})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/chat', methods=['POST'])
-def api_chat():
-    """Process chat messages - Core Agent interface"""
-    data = request.get_json()
-
-    if not data or not data.get('message'):
-        return jsonify({'success': False, 'error': 'Message is required'}), 400
-
-    message = data['message'].strip()
-
-    # Handle quick commands
-    if message.startswith('/'):
-        return handle_command(message)
-
-    # For now, return a simple response
-    # This can be enhanced with actual AI processing later
+@app.route('/api/stats', methods=['GET'])
+def api_get_stats():
+    """Get statistics"""
     return jsonify({
         'success': True,
-        'response': f'Received: {message}',
-        'type': 'text'
+        'data': {
+            'total_docs': get_documents_count(),
+            'categories': get_categories(),
+            'tags': get_all_tags()
+        }
     })
-
-
-def handle_command(message):
-    """Handle slash commands"""
-    parts = message.split(maxsplit=1)
-    command = parts[0].lower()
-    args = parts[1] if len(parts) > 1 else ''
-
-    if command == '/add':
-        if not args:
-            return jsonify({
-                'success': False,
-                'error': 'Usage: /add <title> | <content>'
-            })
-
-        # Parse title | content format
-        if '|' in args:
-            title, content = args.split('|', 1)
-            title = title.strip()
-            content = content.strip()
-        else:
-            title = args[:50] + ('...' if len(args) > 50 else '')
-            content = args
-
-        idea_id = add_idea(title=title, content=content, source='chat')
-        return jsonify({
-            'success': True,
-            'response': f'Added idea #{idea_id}: {title}',
-            'type': 'action',
-            'action': 'add',
-            'idea_id': idea_id
-        })
-
-    elif command == '/search':
-        if not args:
-            return jsonify({
-                'success': False,
-                'error': 'Usage: /search <keyword>'
-            })
-
-        ideas = search_ideas(keyword=args, limit=10)
-        return jsonify({
-            'success': True,
-            'response': f'Found {len(ideas)} ideas',
-            'type': 'search',
-            'data': ideas
-        })
-
-    elif command == '/recent':
-        limit = int(args) if args.isdigit() else 5
-        ideas = get_recent_ideas(limit=limit)
-        return jsonify({
-            'success': True,
-            'response': f'Recent {len(ideas)} ideas',
-            'type': 'list',
-            'data': ideas
-        })
-
-    elif command == '/category':
-        if not args:
-            categories = get_categories()
-            return jsonify({
-                'success': True,
-                'response': 'Categories',
-                'type': 'categories',
-                'data': categories
-            })
-
-        ideas = search_ideas(category=args, limit=20)
-        return jsonify({
-            'success': True,
-            'response': f'Ideas in "{args}"',
-            'type': 'list',
-            'data': ideas
-        })
-
-    elif command == '/help':
-        return jsonify({
-            'success': True,
-            'response': '''Available commands:
-/add <content> - Quick add idea
-/search <keyword> - Search ideas
-/recent [n] - Show recent ideas
-/category [name] - List categories or filter by category
-/help - Show this help''',
-            'type': 'help'
-        })
-
-    else:
-        return jsonify({
-            'success': False,
-            'error': f'Unknown command: {command}. Try /help'
-        })
 
 
 # === Error Handlers ===
@@ -291,6 +187,6 @@ if __name__ == '__main__':
     if not DB_PATH.exists():
         init_database()
 
-    print("Starting AgentNote Web UI...")
+    print("Starting AgentNote Blog Viewer...")
     print("Open http://localhost:5000 in your browser")
     app.run(host='0.0.0.0', port=5000, debug=True)

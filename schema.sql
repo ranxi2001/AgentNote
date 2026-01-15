@@ -1,14 +1,15 @@
 -- AgentNote Database Schema
--- 知识库管理平台数据库结构
+-- Markdown 文档知识库
 
--- 想法主表
-CREATE TABLE IF NOT EXISTS ideas (
+-- 文档主表
+CREATE TABLE IF NOT EXISTS documents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE NOT NULL,           -- URL友好的标识符
     title TEXT NOT NULL,
+    content TEXT NOT NULL,               -- Markdown 内容
     category TEXT,
-    keywords TEXT, -- JSON array string
-    content TEXT NOT NULL,
-    source TEXT DEFAULT 'chat',
+    summary TEXT,                        -- 摘要
+    source TEXT DEFAULT 'chat',          -- 来源: chat, web, import
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -19,34 +20,29 @@ CREATE TABLE IF NOT EXISTS tags (
     name TEXT UNIQUE NOT NULL
 );
 
--- 想法-标签关联表
-CREATE TABLE IF NOT EXISTS idea_tags (
-    idea_id INTEGER,
+-- 文档-标签关联表
+CREATE TABLE IF NOT EXISTS document_tags (
+    document_id INTEGER,
     tag_id INTEGER,
-    PRIMARY KEY (idea_id, tag_id),
-    FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
+    PRIMARY KEY (document_id, tag_id),
+    FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
 );
 
--- 想法关系表
+-- 文档关系表
 CREATE TABLE IF NOT EXISTS relations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    idea_id_1 INTEGER NOT NULL,
-    idea_id_2 INTEGER NOT NULL,
-    relation_type TEXT DEFAULT 'related', -- related, parent, inspired_by, contradict
+    doc_id_1 INTEGER NOT NULL,
+    doc_id_2 INTEGER NOT NULL,
+    relation_type TEXT DEFAULT 'related', -- related, series, reference
     note TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (idea_id_1) REFERENCES ideas (id) ON DELETE CASCADE,
-    FOREIGN KEY (idea_id_2) REFERENCES ideas (id) ON DELETE CASCADE
+    FOREIGN KEY (doc_id_1) REFERENCES documents (id) ON DELETE CASCADE,
+    FOREIGN KEY (doc_id_2) REFERENCES documents (id) ON DELETE CASCADE
 );
 
--- 索引加速查询
-CREATE INDEX IF NOT EXISTS idx_ideas_category ON ideas (category);
-
-CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas (created_at);
-
-CREATE INDEX IF NOT EXISTS idx_ideas_title ON ideas (title);
-
-CREATE INDEX IF NOT EXISTS idx_relations_idea1 ON relations (idea_id_1);
-
-CREATE INDEX IF NOT EXISTS idx_relations_idea2 ON relations (idea_id_2);
+-- 索引
+CREATE INDEX IF NOT EXISTS idx_documents_category ON documents (category);
+CREATE INDEX IF NOT EXISTS idx_documents_created ON documents (created_at);
+CREATE INDEX IF NOT EXISTS idx_documents_slug ON documents (slug);
+CREATE INDEX IF NOT EXISTS idx_tags_name ON tags (name);
