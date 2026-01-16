@@ -5,10 +5,46 @@ Markdown Blog Viewer
 """
 
 import sys
+import os
+import signal
+import subprocess
+import time
 from pathlib import Path
 
 # Add utils to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
+
+
+def kill_port(port):
+    """Kill process using the specified port"""
+    try:
+        # Find process using the port
+        result = subprocess.run(
+            ['lsof', '-ti', f':{port}'],
+            capture_output=True, text=True
+        )
+        pids = result.stdout.strip().split('\n')
+
+        for pid in pids:
+            if pid:
+                try:
+                    os.kill(int(pid), signal.SIGKILL)
+                    print(f"Killed process {pid} on port {port}")
+                except ProcessLookupError:
+                    pass
+
+        # Wait for port to be released
+        for _ in range(10):  # Wait up to 5 seconds
+            result = subprocess.run(
+                ['lsof', '-ti', f':{port}'],
+                capture_output=True, text=True
+            )
+            if not result.stdout.strip():
+                return  # Port is free
+            time.sleep(0.5)
+        print(f"Warning: Port {port} might still be in use.")
+    except Exception:
+        pass  # No process on port or lsof not available
 
 from flask import Flask, render_template, request, jsonify
 from db import (
@@ -183,10 +219,19 @@ def server_error(e):
 # === Main ===
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--debug', action='store_true', help='Run in debug mode')
+    parser.add_argument('--port', type=int, default=5000, help='Port number')
+    args = parser.parse_args()
+
+    # Kill any existing process on the port
+    kill_port(args.port)
+
     # Ensure database exists
     if not DB_PATH.exists():
         init_database()
 
     print("Starting AgentNote Blog Viewer...")
-    print("Open http://localhost:5000 in your browser")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    print(f"Open http://localhost:{args.port} in your browser")
+    app.run(host='0.0.0.0', port=args.port, debug=args.debug, use_reloader=False)
