@@ -332,7 +332,86 @@ a:hover {
 }
 
 .doc-view.active {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.doc-article {
+  flex: 1;
+  min-width: 0;
+  max-width: 800px;
+}
+
+/* TOC Sidebar */
+.doc-toc {
+  position: sticky;
+  top: 24px;
+  width: 220px;
+  flex-shrink: 0;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.doc-toc:empty {
+  display: none;
+}
+
+.doc-toc .toc {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.doc-toc .toc-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.doc-toc .toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--border);
+}
+
+.doc-toc .toc-item {
+  margin: 0;
+  padding: 6px 0 6px 12px;
+  line-height: 1.4;
+  border-left: 2px solid transparent;
+  margin-left: -2px;
+  transition: border-color 0.15s;
+}
+
+.doc-toc .toc-item:hover {
+  border-left-color: var(--accent);
+}
+
+.doc-toc .toc-item a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
   display: block;
+  transition: color 0.15s;
+}
+
+.doc-toc .toc-item a:hover {
+  color: var(--accent);
+}
+
+.doc-toc .toc-indent {
+  padding-left: 24px;
+}
+
+.doc-toc .toc-indent a {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .doc-header {
@@ -579,6 +658,18 @@ a:hover {
 
   .doc-title {
     font-size: 24px;
+  }
+
+  .doc-view.active {
+    display: block;
+  }
+
+  .doc-toc {
+    display: none;
+  }
+
+  .doc-article {
+    max-width: 100%;
   }
 }
 

@@ -87,38 +87,44 @@
 
         <!-- Document View -->
         <div id="doc-view" class="doc-view">
-          <div class="doc-header">
-            <div id="doc-back" class="doc-back">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              Back
+          <!-- Main Article -->
+          <article class="doc-article">
+            <div class="doc-header">
+              <div id="doc-back" class="doc-back">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="19" y1="12" x2="5" y2="12"></line>
+                  <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                Back
+              </div>
+
+              <h1 id="doc-view-title" class="doc-title"></h1>
+
+              <div class="doc-meta">
+                <div class="doc-meta-item">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  <span id="doc-view-category"></span>
+                </div>
+                <div class="doc-meta-item">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  <span id="doc-view-date"></span>
+                </div>
+                <div class="doc-meta-item" style="display: none;">
+                  <div id="doc-view-tags" class="tag-cloud"></div>
+                </div>
+              </div>
             </div>
 
-            <h1 id="doc-view-title" class="doc-title"></h1>
+            <div id="doc-view-content" class="doc-content"></div>
+          </article>
 
-            <div class="doc-meta">
-              <div class="doc-meta-item">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                </svg>
-                <span id="doc-view-category"></span>
-              </div>
-              <div class="doc-meta-item">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                <span id="doc-view-date"></span>
-              </div>
-              <div class="doc-meta-item" style="display: none;">
-                <div id="doc-view-tags" class="tag-cloud"></div>
-              </div>
-            </div>
-          </div>
-
-          <div id="doc-view-content" class="doc-content"></div>
+          <!-- TOC Sidebar -->
+          <aside id="doc-toc" class="doc-toc"></aside>
         </div>
       </div>
     </main>

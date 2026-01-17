@@ -44,8 +44,36 @@ const api = {
 
 // Markdown Parser (simple implementation)
 const md = {
-  parse(text) {
+  // Store extracted headings for TOC
+  headings: [],
+
+  parse(text, options = {}) {
     if (!text) return '';
+
+    // Reset headings
+    this.headings = [];
+
+    // Remove first H1 if it matches the title (avoid duplicate)
+    if (options.title) {
+      const firstH1Match = text.match(/^# (.+)$/m);
+      if (firstH1Match) {
+        const h1Text = firstH1Match[1].trim();
+        const titleNormalized = options.title.trim();
+        // Remove if similar (exact match or very close)
+        if (h1Text === titleNormalized ||
+            h1Text.replace(/[（）()]/g, '') === titleNormalized.replace(/[（）()]/g, '')) {
+          text = text.replace(/^# .+\n+/, '');
+        }
+      }
+    }
+
+    // Extract headings for TOC and add IDs
+    let headingId = 0;
+    const addHeading = (level, title) => {
+      const id = `heading-${headingId++}`;
+      this.headings.push({ level, title, id });
+      return id;
+    };
 
     let html = text
       // Escape HTML
@@ -60,11 +88,23 @@ const md = {
       // Inline code
       .replace(/`([^`]+)`/g, '<code>$1</code>')
 
-      // Headers
-      .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+      // Headers with IDs for TOC
+      .replace(/^#### (.+)$/gm, (_, title) => {
+        const id = addHeading(4, title);
+        return `<h4 id="${id}">${title}</h4>`;
+      })
+      .replace(/^### (.+)$/gm, (_, title) => {
+        const id = addHeading(3, title);
+        return `<h3 id="${id}">${title}</h3>`;
+      })
+      .replace(/^## (.+)$/gm, (_, title) => {
+        const id = addHeading(2, title);
+        return `<h2 id="${id}">${title}</h2>`;
+      })
+      .replace(/^# (.+)$/gm, (_, title) => {
+        const id = addHeading(1, title);
+        return `<h1 id="${id}">${title}</h1>`;
+      })
 
       // Bold and italic
       .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
@@ -102,6 +142,29 @@ const md = {
       // Line breaks
       .replace(/\n\n/g, '\n');
 
+    return html;
+  },
+
+  // Generate TOC HTML from extracted headings
+  generateTOC() {
+    if (this.headings.length === 0) return '';
+
+    // Only include H2 and H3 for cleaner TOC
+    const tocItems = this.headings.filter(h => h.level === 2 || h.level === 3);
+    if (tocItems.length < 2) return ''; // No TOC if less than 2 headings
+
+    let html = '<nav class="toc"><div class="toc-title">目录</div><ul class="toc-list">';
+    tocItems.forEach(h => {
+      const indent = h.level === 3 ? ' toc-indent' : '';
+      // Clean the title (remove HTML entities that were escaped)
+      const cleanTitle = h.title
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/<[^>]+>/g, ''); // Remove any HTML tags
+      html += `<li class="toc-item${indent}"><a href="#${h.id}">${cleanTitle}</a></li>`;
+    });
+    html += '</ul></nav>';
     return html;
   }
 };
@@ -261,7 +324,19 @@ const ui = {
       $('#doc-view-title').textContent = state.currentDoc.title;
       $('#doc-view-category').textContent = state.currentDoc.category || 'Uncategorized';
       $('#doc-view-date').textContent = formatDate(state.currentDoc.created_at);
-      $('#doc-view-content').innerHTML = md.parse(state.currentDoc.content);
+
+      // Parse markdown with title to remove duplicate H1
+      const contentHtml = md.parse(state.currentDoc.content, { title: state.currentDoc.title });
+      const tocHtml = md.generateTOC();
+
+      // Render content
+      $('#doc-view-content').innerHTML = contentHtml;
+
+      // Render TOC to sidebar (if element exists)
+      const tocEl = $('#doc-toc');
+      if (tocEl) {
+        tocEl.innerHTML = tocHtml;
+      }
 
       // Update tags
       const tagsContainer = $('#doc-view-tags');
@@ -293,6 +368,7 @@ const ui = {
   filterCategory(category) {
     state.filter.category = category;
     state.filter.tag = null;
+    this.showList();
     this.renderCategories();
     this.renderTags();
     this.loadDocs();
@@ -302,6 +378,7 @@ const ui = {
   filterTag(tag) {
     state.filter.tag = state.filter.tag === tag ? null : tag;
     state.filter.category = null;
+    this.showList();
     this.renderCategories();
     this.renderTags();
     this.loadDocs();
