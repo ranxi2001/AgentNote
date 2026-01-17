@@ -420,18 +420,49 @@ a:hover {
   border-bottom: 1px solid var(--border);
 }
 
+.doc-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
 .doc-back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 14px;
   color: var(--text-secondary);
-  margin-bottom: 16px;
   cursor: pointer;
 }
 
 .doc-back:hover {
   color: var(--accent);
+}
+
+.btn-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-delete:hover {
+  color: #dc2626;
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.btn-delete svg {
+  width: 14px;
+  height: 14px;
 }
 
 .doc-title {

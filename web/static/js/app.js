@@ -32,6 +32,10 @@ const api = {
     const res = await fetch(`/api/docs/${id}`);
     return res.json();
   },
+  async deleteDoc(id) {
+    const res = await fetch(`/api/docs/${id}`, { method: 'DELETE' });
+    return res.json();
+  },
   async getCategories() {
     const res = await fetch('/api/categories');
     return res.json();
@@ -193,6 +197,9 @@ const ui = {
 
     // Back button
     $('#doc-back')?.addEventListener('click', () => this.showList());
+
+    // Delete button
+    $('#doc-delete')?.addEventListener('click', () => this.deleteDoc());
   },
 
   async loadData() {
@@ -363,6 +370,26 @@ const ui = {
     $('#doc-view').classList.remove('active');
     $('#list-view').classList.remove('hidden');
     state.currentDoc = null;
+  },
+
+  async deleteDoc() {
+    if (!state.currentDoc) return;
+
+    const confirmed = confirm(`确定要删除「${state.currentDoc.title}」吗？\n\n此操作不可撤销。`);
+    if (!confirmed) return;
+
+    try {
+      const res = await api.deleteDoc(state.currentDoc.id);
+      if (res.success) {
+        this.showList();
+        this.loadData(); // Refresh list
+      } else {
+        alert('删除失败: ' + (res.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Failed to delete doc:', err);
+      alert('删除失败: ' + err.message);
+    }
   },
 
   filterCategory(category) {
