@@ -14,7 +14,10 @@ const state = {
     tag: null,
     keyword: ''
   },
-  isDark: false
+  isDark: false,
+  // Document cache for preloading
+  docCache: new Map(),
+  preloadQueue: new Set()
 };
 
 // DOM
@@ -28,12 +31,23 @@ const api = {
     const res = await fetch(`/api/docs?${query}`);
     return res.json();
   },
-  async getDoc(id) {
+  async getDoc(id, useCache = true) {
+    // Check cache first
+    if (useCache && state.docCache.has(id)) {
+      return { success: true, data: state.docCache.get(id), fromCache: true };
+    }
     const res = await fetch(`/api/docs/${id}`);
-    return res.json();
+    const data = await res.json();
+    // Cache successful responses
+    if (data.success) {
+      state.docCache.set(id, data.data);
+    }
+    return data;
   },
   async deleteDoc(id) {
     const res = await fetch(`/api/docs/${id}`, { method: 'DELETE' });
+    // Clear from cache
+    state.docCache.delete(id);
     return res.json();
   },
   async getCategories() {
@@ -43,6 +57,28 @@ const api = {
   async getTags() {
     const res = await fetch('/api/tags');
     return res.json();
+  },
+  // Preload document in background
+  preload(id) {
+    if (state.docCache.has(id) || state.preloadQueue.has(id)) return;
+    state.preloadQueue.add(id);
+    // Use requestIdleCallback for non-blocking preload
+    const load = () => {
+      fetch(`/api/docs/${id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            state.docCache.set(id, data.data);
+          }
+        })
+        .catch(() => {})
+        .finally(() => state.preloadQueue.delete(id));
+    };
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(load, { timeout: 2000 });
+    } else {
+      setTimeout(load, 100);
+    }
   }
 };
 
@@ -78,6 +114,14 @@ const md = {
       this.headings.push({ level, title, id });
       return id;
     };
+
+    // Parse tables first and store them with placeholders
+    const tables = [];
+    text = text.replace(/^\|(.+)\|\s*\n\|[-:\s|]+\|\s*\n((?:\|.+\|\s*\n?)+)/gm, (match) => {
+      const placeholder = `__TABLE_${tables.length}__`;
+      tables.push(this.parseTable(match));
+      return placeholder;
+    });
 
     let html = text
       // Escape HTML
@@ -146,6 +190,11 @@ const md = {
       // Line breaks
       .replace(/\n\n/g, '\n');
 
+    // Restore tables
+    tables.forEach((tableHtml, i) => {
+      html = html.replace(`__TABLE_${i}__`, tableHtml);
+    });
+
     return html;
   },
 
@@ -169,6 +218,39 @@ const md = {
       html += `<li class="toc-item${indent}"><a href="#${h.id}">${cleanTitle}</a></li>`;
     });
     html += '</ul></nav>';
+    return html;
+  },
+
+  // Parse a single markdown table
+  parseTable(tableText) {
+    const lines = tableText.trim().split('\n');
+    if (lines.length < 3) return tableText; // Need at least header, separator, and one row
+
+    // Parse header (first line)
+    const headers = lines[0].split('|').map(h => h.trim()).filter(h => h);
+
+    // Skip separator line (second line)
+    // Parse body rows (remaining lines)
+    const rows = lines.slice(2).map(row => {
+      return row.split('|').map(cell => cell.trim()).filter(cell => cell !== '');
+    });
+
+    // Build HTML table
+    let html = '<table>\n<thead>\n<tr>\n';
+    headers.forEach(h => {
+      html += `<th>${h}</th>\n`;
+    });
+    html += '</tr>\n</thead>\n<tbody>\n';
+
+    rows.forEach(row => {
+      html += '<tr>\n';
+      row.forEach(cell => {
+        html += `<td>${cell}</td>\n`;
+      });
+      html += '</tr>\n';
+    });
+
+    html += '</tbody>\n</table>';
     return html;
   }
 };
@@ -302,7 +384,7 @@ const ui = {
     }
 
     container.innerHTML = state.docs.map(doc => `
-      <div class="doc-card" onclick="ui.viewDoc(${doc.id})">
+      <div class="doc-card" onclick="ui.viewDoc(${doc.id})" onmouseenter="api.preload(${doc.id})">
         <div class="doc-card-header">
           <div class="doc-card-title">${escapeHtml(doc.title)}</div>
           ${doc.category ? `<span class="doc-card-category">${escapeHtml(doc.category)}</span>` : ''}
@@ -318,6 +400,9 @@ const ui = {
         </div>
       </div>
     `).join('');
+
+    // Preload first 3 documents immediately for faster initial navigation
+    state.docs.slice(0, 3).forEach(doc => api.preload(doc.id));
   },
 
   async viewDoc(id) {

@@ -327,14 +327,30 @@ a:hover {
 }
 
 /* === Document View === */
+/* View transitions */
+#list-view {
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+#list-view.hidden {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  visibility: hidden;
+}
+
 .doc-view {
   display: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
 }
 
 .doc-view.active {
   display: flex;
   gap: 32px;
   align-items: flex-start;
+  opacity: 1;
 }
 
 .doc-article {
@@ -693,6 +709,7 @@ a:hover {
 
   .doc-view.active {
     display: block;
+    opacity: 1;
   }
 
   .doc-toc {
@@ -724,4 +741,5 @@ a:hover {
 }
 
 /* === Utilities === */
-.hidden { display: none !important; }
+/* Generic hidden - use specific selectors for transitions */
+.hidden:not(#list-view) { display: none !important; }
